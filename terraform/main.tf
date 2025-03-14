@@ -38,7 +38,8 @@ resource "aws_subnet" "web" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "Web"
+    Name    = "Web"
+    Project = local.project_name
   }
 }
 
@@ -48,7 +49,8 @@ resource "aws_internet_gateway" "web-gw" {
   vpc_id = aws_vpc.web.id
 
   tags = {
-    Name = "Web"
+    Name    = "Web"
+    Project = local.project_name
   }
 }
 
@@ -58,7 +60,8 @@ resource "aws_route_table" "web" {
   vpc_id = aws_vpc.web.id
 
   tags = {
-    Name = "web-route"
+    Name    = "web-route"
+    Project = local.project_name
   }
 }
 
@@ -83,7 +86,8 @@ resource "aws_security_group" "web" {
   vpc_id      = aws_vpc.web.id
 
   tags = {
-    Name = "Web"
+    Name    = "Web"
+    Project = local.project_name
   }
 }
 
@@ -118,27 +122,21 @@ resource "aws_vpc_security_group_egress_rule" "web-egress" {
   ip_protocol = -1
 }
 
-# create the ec2 instance
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance
-resource "aws_instance" "web" {
-  ami                    = data.aws_ami.ansible-name.id
-  instance_type          = "t2.micro"
-  key_name               = "aws-4640"
-  vpc_security_group_ids = [aws_security_group.web.id]
-  subnet_id              = aws_subnet.web.id
-
-  tags = {
-    Name = "Web"
-  }
+module "web_server" {
+  source             = "./modules/web-server"
+  ami                = data.aws_ami.ansible-nginx.id
+  key_name           = "aws-4640"
+  security_group_ids = [aws_security_group.web.id]
+  subnet_id          = aws_subnet.web.id
+  project_name       = local.project_name
 }
 
-# print public ip and dns to terminal
-# https://developer.hashicorp.com/terraform/language/values/outputs
-output "instance_ip_addr" {
+output "web_server_module" {
   description = "The public IP and dns of the web ec2 instance."
   value = {
-    "public_ip" = aws_instance.web.public_ip
-    "dns_name"  = aws_instance.web.public_dns
+    "public_ip"   = module.web_server.instance_ip_addr
+    "dns_name"    = module.web_server.instance_dns_name
+    "instance_id" = module.web_server.instance_id
   }
 }
 
